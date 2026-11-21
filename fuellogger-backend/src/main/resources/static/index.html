@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Fuel Logger API Tester</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f9; color: #333; }
+        h1, h2 { color: #2c3e50; }
+        .container { display: flex; gap: 20px; flex-wrap: wrap; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 45%; min-width: 320px; }
+        label { display: block; margin-top: 10px; font-weight: bold; }
+        input { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
+        button { margin-top: 15px; padding: 10px 15px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #219150; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #34495e; color: white; }
+    </style>
+</head>
+<body>
+
+<h1>Fuel Logger Backend Tester</h1>
+
+<div class="container">
+    <!-- Vehicle Management -->
+    <div class="card">
+        <h2>1. Add New Vehicle</h2>
+        <form id="vehicleForm">
+            <label>VRM (Registration):</label>
+            <input type="text" id="vrm" placeholder="AB12CDE" required>
+            <label>Make:</label>
+            <input type="text" id="make" placeholder="Ford" required>
+            <label>Model:</label>
+            <input type="text" id="model" placeholder="Focus" required>
+            <label>Fuel Type:</label>
+            <input type="text" id="fuelType" placeholder="PETROL" required>
+            <button type="submit">Add Vehicle</button>
+        </form>
+
+        <h2>Vehicles List</h2>
+        <button onclick="loadVehicles()">Refresh Vehicles</button>
+        <table id="vehiclesTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>VRM</th>
+                    <th>Make</th>
+                    <th>Model</th>
+                    <th>Fuel</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- Fuel Log Management -->
+    <div class="card">
+        <h2>2. Add Fuel Log</h2>
+        <form id="fuelForm">
+            <label>Vehicle ID:</label>
+            <input type="number" id="vehicleId" placeholder="1" required>
+            <label>Log Date:</label>
+            <input type="date" id="logDate" required>
+            <label>Odometer Reading (Miles):</label>
+            <input type="number" id="odometer" placeholder="45000" required>
+            <label>Litres Added:</label>
+            <input type="number" step="0.01" id="litres" placeholder="45.5" required>
+            <label>Total Cost (£):</label>
+            <input type="number" step="0.01" id="totalCostGbp" placeholder="65.00" required>
+            <button type="submit">Add Fuel Log</button>
+        </form>
+
+        <h2>Fuel Logs List</h2>
+        <button onclick="loadFuelLogs()">Fetch Fuel Logs for Vehicle</button>
+        <table id="fuelLogsTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Date</th>
+                    <th>Odometer</th>
+                    <th>Litres</th>
+                    <th>Cost (£)</th>
+                    <th>MPG</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const API_BASE = 'http://localhost:8080/api';
+
+    // Set default date picker to today
+    document.getElementById('logDate').valueToDate = new Date();
+    document.getElementById('logDate').value = new Date().toISOString().substring(0, 10);
+
+    // Create Vehicle
+    document.getElementById('vehicleForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const payload = {
+            vrm: document.getElementById('vrm').value,
+            make: document.getElementById('make').value,
+            model: document.getElementById('model').value,
+            fuelType: document.getElementById('fuelType').value
+        };
+
+        const res = await fetch(`${API_BASE}/vehicles`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            alert('Vehicle created successfully!');
+            loadVehicles();
+        } else {
+            alert('Failed to create vehicle');
+        }
+    });
+
+    // Load Vehicles
+    async function loadVehicles() {
+        const res = await fetch(`${API_BASE}/vehicles`);
+        const vehicles = await res.json();
+        const tbody = document.querySelector('#vehiclesTable tbody');
+        tbody.innerHTML = '';
+
+        vehicles.forEach(v => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${v.id}</td>
+                    <td>${v.vrm}</td>
+                    <td>${v.make}</td>
+                    <td>${v.model}</td>
+                    <td>${v.fuelType}</td>
+                </tr>
+            `;
+        });
+    }
+
+    // Create Fuel Log
+    document.getElementById('fuelForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const vehicleId = document.getElementById('vehicleId').value;
+        const payload = {
+            vehicleId: parseInt(vehicleId),
+            logDate: document.getElementById('logDate').value,
+            odometer: parseInt(document.getElementById('odometer').value),
+            litres: parseFloat(document.getElementById('litres').value),
+            totalCostGbp: parseFloat(document.getElementById('totalCostGbp').value)
+        };
+
+        const res = await fetch(`${API_BASE}/vehicles/${vehicleId}/fuel-logs`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            alert('Fuel log added!');
+            loadFuelLogs();
+        } else {
+            alert('Failed to add fuel log');
+        }
+    });
+
+    // Load Fuel Logs for specific vehicle ID
+    async function loadFuelLogs() {
+        const vehicleId = document.getElementById('vehicleId').value;
+        if (!vehicleId) {
+            alert('Please enter a Vehicle ID first');
+            return;
+        }
+
+        const res = await fetch(`${API_BASE}/vehicles/${vehicleId}/fuel-logs`);
+        if (!res.ok) {
+            alert('Could not fetch logs');
+            return;
+        }
+
+        const logs = await res.json();
+        const tbody = document.querySelector('#fuelLogsTable tbody');
+        tbody.innerHTML = '';
+
+        logs.forEach(log => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${log.id}</td>
+                    <td>${log.logDate}</td>
+                    <td>${log.odometer}</td>
+                    <td>${log.litres}</td>
+                    <td>£${log.totalCostGbp}</td>
+                    <td><b>${log.calculatedMpg !== null ? log.calculatedMpg : 'N/A'}</b></td>
+                </tr>
+            `;
+        });
+    }
+
+    // Load vehicle list on initial page visit
+    loadVehicles();
+</script>
+
+</body>
+</html>
